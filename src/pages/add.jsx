@@ -1,30 +1,41 @@
 import { useState } from "react";
 import assets from "../assets/assets";
 import axios from "axios";
-import { backendUrl } from "../App";
 import { toast } from "react-toastify";
 
 const Add = ({ token }) => {
-  // alert(JSON.stringify(token));
-  const [image1, setImage1] = useState(false);
-  const [image2, setImage2] = useState(false);
-  const [image3, setImage3] = useState(false);
-  const [image4, setImage4] = useState(false);
-
+  const [images, setImages] = useState([]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [price, Setprice] = useState("");
+  const [price, setPrice] = useState("");
   const [category, setCategory] = useState("Men");
   const [subCategory, setSubCategory] = useState("Topwear");
   const [bestseller, setBestSeller] = useState(false);
-  const [sizes, SetSizes] = useState([]);
+  const [sizes, setSizes] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const onDrop = (e) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files);
+    const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+    setImages((prev) => [...prev, ...imageFiles]);
+  };
+
+  const onImageChange = (e) => {
+    const files = Array.from(e.target.files);
+    setImages((prev) => [...prev, ...files]);
+  };
+
+  const removeImage = (index) => {
+    setImages(images.filter((_, i) => i !== index));
+  };
 
   const onSubmitHandler = async (e) => {
     e.preventDefault();
+    setLoading(true);
 
     try {
       const formData = new FormData();
-      // alert(backendUrl + "/api/product/add");
       formData.append("name", name);
       formData.append("description", description);
       formData.append("price", price);
@@ -33,37 +44,32 @@ const Add = ({ token }) => {
       formData.append("bestseller", bestseller);
       formData.append("sizes", JSON.stringify(sizes));
 
-      image1 && formData.append("image1", image1);
-      image2 && formData.append("image2", image2);
-      image3 && formData.append("image3", image3);
-      image4 && formData.append("image4", image4);
+      images.forEach((img, i) => {
+        formData.append(`image${i + 1}`, img);
+      });
 
-      // console.log(bestseller);
-      // return;
-
-      // alert("http://localhost:4000/api/product/add");
       const response = await axios.post(
-        import.meta.env.VITE_BACKEND_URL+"/api/product/add",
+        import.meta.env.VITE_BACKEND_URL + "/api/product/add",
         formData,
         { headers: { token } }
       );
-      // alert(backendUrl + "/api/product/add");
 
       if (response.data.sucsess) {
         toast.success(response.data.message);
         setName("");
         setDescription("");
-        setImage1(false);
-        setImage2(false);
-        setImage3(false);
-        setImage4(false);
-        Setprice("");
+        setImages([]);
+        setPrice("");
+        setSizes([]);
+        setBestSeller(false);
       } else {
         toast.error(response.data.message);
       }
     } catch (error) {
       console.log(error);
       toast.error(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -71,64 +77,42 @@ const Add = ({ token }) => {
     <form
       onSubmit={onSubmitHandler}
       className="flex flex-col w-full items-start gap-3"
+      onDrop={onDrop}
+      onDragOver={(e) => e.preventDefault()}
     >
       <div>
-        <p className="mb-2">Upload Image</p>
-        <div className="flex gap-2">
-          <label htmlFor="image1">
-            <img
-              className="w-20"
-              src={!image1 ? assets.upload_area : URL.createObjectURL(image1)}
-              alt=""
-            />
+        <p className="mb-2">Upload Images (Drag and drop supported)</p>
+        <div className="flex gap-2 flex-wrap border border-dashed border-gray-400 p-4 rounded">
+          {images.map((image, index) => (
+            <div key={index} className="relative group">
+              <img
+                src={URL.createObjectURL(image)}
+                className="w-20 h-20 object-cover"
+                alt={`upload-${index}`}
+              />
+              <button
+                type="button"
+                onClick={() => removeImage(index)}
+                className="absolute top-0 right-0 bg-red-500 text-white text-xs px-1 py-0.5 rounded-full opacity-75 hover:opacity-100"
+              >
+                X
+              </button>
+            </div>
+          ))}
+          <label className="w-20 h-20 flex items-center justify-center border border-gray-300 cursor-pointer bg-slate-100">
+            <span className="text-xl">+</span>
             <input
-              onChange={(e) => setImage1(e.target.files[0])}
               type="file"
-              id="image1"
               hidden
-            />
-          </label>
-          <label htmlFor="image2">
-            <img
-              className="w-20"
-              src={!image2 ? assets.upload_area : URL.createObjectURL(image2)}
-              alt=""
-            />
-            <input
-              onChange={(e) => setImage2(e.target.files[0])}
-              type="file"
-              id="image2"
-              hidden
-            />
-          </label>
-          <label htmlFor="image3">
-            <img
-              className="w-20"
-              src={!image3 ? assets.upload_area : URL.createObjectURL(image3)}
-              alt=""
-            />
-            <input
-              onChange={(e) => setImage3(e.target.files[0])}
-              type="file"
-              id="image3"
-              hidden
-            />
-          </label>
-          <label htmlFor="image4">
-            <img
-              className="w-20"
-              src={!image4 ? assets.upload_area : URL.createObjectURL(image4)}
-              alt=""
-            />
-            <input
-              onChange={(e) => setImage4(e.target.files[0])}
-              type="file"
-              id="image4"
-              hidden
+              accept="image/*"
+              multiple
+              onChange={onImageChange}
             />
           </label>
         </div>
       </div>
+
+      {/* ...Other inputs remain the same... */}
 
       <div className="w-full">
         <p className="mb-2">Product Name</p>
@@ -148,7 +132,6 @@ const Add = ({ token }) => {
           onChange={(e) => setDescription(e.target.value)}
           value={description}
           className="w-full max-w-[500px] px-3 py-2"
-          type="text"
           placeholder="Write content here"
           required
         />
@@ -160,6 +143,7 @@ const Add = ({ token }) => {
           <select
             onChange={(e) => setCategory(e.target.value)}
             className="w-full px-3 py-2"
+            value={category}
           >
             <option value="Men">Men</option>
             <option value="Women">Women</option>
@@ -172,6 +156,7 @@ const Add = ({ token }) => {
           <select
             onChange={(e) => setSubCategory(e.target.value)}
             className="w-full px-3 py-2"
+            value={subCategory}
           >
             <option value="Topwear">Topwear</option>
             <option value="Bottomwear">Bottomwear</option>
@@ -182,10 +167,10 @@ const Add = ({ token }) => {
         <div>
           <p className="mb-2">Product Price</p>
           <input
-            onChange={(e) => Setprice(e.target.value)}
+            onChange={(e) => setPrice(e.target.value)}
             value={price}
             className="w-full px-3 py-2 sm:w-[120px]"
-            type="Number"
+            type="number"
             placeholder="25"
           />
         </div>
@@ -194,88 +179,30 @@ const Add = ({ token }) => {
       <div>
         <p className="mb-2">Product sizes</p>
         <div className="flex gap-3">
-          <div
-            onClick={() =>
-              SetSizes((prev) =>
-                prev.includes("S")
-                  ? prev.filter((item) => item !== "S")
-                  : [...prev, "S"]
-              )
-            }
-          >
-            <p
-              className={`${sizes.includes("S") ? "bg-pink-100" : "bg-slate-200"
-                } px-3 py-1 cursor-pointer`}
+          {["S", "M", "L", "XL", "XXL"].map((size) => (
+            <div
+              key={size}
+              onClick={() =>
+                setSizes((prev) =>
+                  prev.includes(size)
+                    ? prev.filter((s) => s !== size)
+                    : [...prev, size]
+                )
+              }
             >
-              S
-            </p>
-          </div>
-          <div
-            onClick={() =>
-              SetSizes((prev) =>
-                prev.includes("M")
-                  ? prev.filter((item) => item !== "M")
-                  : [...prev, "M"]
-              )
-            }
-          >
-            <p
-              className={`${sizes.includes("M") ? "bg-pink-100" : "bg-slate-200"
-                } px-3 py-1 cursor-pointer`}
-            >
-              M
-            </p>
-          </div>
-          <div
-            onClick={() =>
-              SetSizes((prev) =>
-                prev.includes("L")
-                  ? prev.filter((item) => item !== "L")
-                  : [...prev, "L"]
-              )
-            }
-          >
-            <p
-              className={`${sizes.includes("L") ? "bg-pink-100" : "bg-slate-200"
-                } px-3 py-1 cursor-pointer`}
-            >
-              L
-            </p>
-          </div>
-          <div
-            onClick={() =>
-              SetSizes((prev) =>
-                prev.includes("XL")
-                  ? prev.filter((item) => item !== "XL")
-                  : [...prev, "XL"]
-              )
-            }
-          >
-            <p
-              className={`${sizes.includes("XL") ? "bg-pink-100" : "bg-slate-200"
-                } px-3 py-1 cursor-pointer`}
-            >
-              XL
-            </p>
-          </div>
-          <div
-            onClick={() =>
-              SetSizes((prev) =>
-                prev.includes("XXL")
-                  ? prev.filter((item) => item !== "XXL")
-                  : [...prev, "XXL"]
-              )
-            }
-          >
-            <p
-              className={`${sizes.includes("XXL") ? "bg-pink-100" : "bg-slate-200"
-                } px-3 py-1 cursor-pointer`}
-            >
-              XXL
-            </p>
-          </div>
+              <p
+                className={`${sizes.includes(size)
+                  ? "bg-pink-100"
+                  : "bg-slate-200"
+                  } px-3 py-1 cursor-pointer`}
+              >
+                {size}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
+
       <div className="flex gap-2 mt-2">
         <input
           onChange={(e) => setBestSeller(e.target.checked)}
@@ -288,9 +215,16 @@ const Add = ({ token }) => {
         </label>
       </div>
 
-
-      <button type="submit" className="w-28 py-3 mt-4 bg-black text-white">
-        ADD
+      <button
+        type="submit"
+        className="w-28 py-3 mt-4 bg-black text-white flex justify-center items-center"
+        disabled={loading}
+      >
+        {loading ? (
+          <span className="animate-spin rounded-full h-5 w-5 border-t-2 border-white border-solid" />
+        ) : (
+          "ADD"
+        )}
       </button>
     </form>
   );
