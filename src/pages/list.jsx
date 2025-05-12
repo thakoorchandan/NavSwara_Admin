@@ -40,15 +40,20 @@ const List = ({ token }) => {
 
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(false);
+
   const [editingProduct, setEditingProduct] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [form] = Form.useForm();
+
   const [coverEditList, setCoverEditList] = useState([]);
   const [editFileList, setEditFileList] = useState([]);
+
+  // -------- image preview state ----------
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState("");
   const [previewTitle, setPreviewTitle] = useState("");
 
+  // fetch products
   const fetchList = async () => {
     setLoading(true);
     try {
@@ -66,6 +71,7 @@ const List = ({ token }) => {
     fetchList();
   }, []);
 
+  // delete
   const removeProduct = async (id) => {
     setLoading(true);
     try {
@@ -87,37 +93,38 @@ const List = ({ token }) => {
     }
   };
 
-  const showEditModal = (record) => {
-    setEditingProduct(record);
+  // open edit
+  const showEditModal = (rec) => {
+    setEditingProduct(rec);
     form.setFieldsValue({
-      name: record.name,
-      price: record.price,
-      description: record.description,
-      category: record.category,
-      subCategory: record.subCategory,
-      brand: record.brand,
-      colors: record.color,
-      sizes: record.sizes,
-      tags: record.tags,
-      bestSeller: record.bestSeller,
-      inStock: record.inStock,
+      name: rec.name,
+      price: rec.price,
+      description: rec.description,
+      category: rec.category,
+      subCategory: rec.subCategory,
+      brand: rec.brand,
+      colors: rec.color,
+      sizes: rec.sizes,
+      tags: rec.tags,
+      bestSeller: rec.bestSeller,
+      inStock: rec.inStock,
     });
     setCoverEditList(
-      record.coverImage
+      rec.coverImage
         ? [
             {
-              uid: record.coverImage.url,
+              uid: rec.coverImage.url,
               name: "Cover",
               status: "done",
-              url: record.coverImage.url,
+              url: rec.coverImage.url,
             },
           ]
         : []
     );
     setEditFileList(
-      (record.images || []).map((img, idx) => ({
-        uid: img.url + idx,
-        name: `Img ${idx + 1}`,
+      (rec.images || []).map((img, i) => ({
+        uid: img.url + i,
+        name: `Img ${i + 1}`,
         status: "done",
         url: img.url,
       }))
@@ -125,9 +132,11 @@ const List = ({ token }) => {
     setIsEditModalOpen(true);
   };
 
+  // upload handlers
   const handleCoverChange = ({ fileList }) => setCoverEditList(fileList);
   const handleOtherChange = ({ fileList }) => setEditFileList(fileList);
 
+  // custom preview: now just sets preview state
   const handleImagePreview = async (file) => {
     let src = file.url;
     if (!src && file.originFileObj) {
@@ -142,6 +151,7 @@ const List = ({ token }) => {
     setPreviewOpen(true);
   };
 
+  // update submit
   const handleUpdate = async (values) => {
     try {
       const id = editingProduct._id;
@@ -159,8 +169,9 @@ const List = ({ token }) => {
       const existing = editFileList
         .filter((f) => !f.originFileObj)
         .map((f) => f.url);
-      if (existing.length)
+      if (existing.length) {
         fd.append("existingImages", JSON.stringify(existing));
+      }
       editFileList
         .filter((f) => f.originFileObj)
         .forEach((f) => fd.append("images", f.originFileObj));
@@ -226,82 +237,64 @@ const List = ({ token }) => {
             src={url}
             preview={false}
             style={{ cursor: "pointer" }}
-            onClick={() => handleImagePreview({ url, name: "Cover" })}
+            onClick={() => handleImagePreview({ url, name: "Cover Image" })}
           />
         ),
     },
-    {
-      title: "Name",
-      dataIndex: "name",
-      key: "name",
-      sorter: (a, b) => a.name.localeCompare(b.name),
-    },
+    { title: "Name", dataIndex: "name", key: "name" },
     {
       title: "Category",
       dataIndex: "category",
       key: "category",
       render: categoryTag,
       filters: categoryOptions.map((c) => ({ text: c, value: c })),
-      onFilter: (value, rec) => rec.category === value,
+      onFilter: (v, rec) => rec.category === v,
     },
     {
       title: "Sub-Category",
       dataIndex: "subCategory",
       key: "subCategory",
-      sorter: (a, b) => a.subCategory.localeCompare(b.subCategory),
     },
-    {
-      title: "Brand",
-      dataIndex: "brand",
-      key: "brand",
-      sorter: (a, b) => (a.brand || "").localeCompare(b.brand || ""),
-    },
+    { title: "Brand", dataIndex: "brand", key: "brand" },
     {
       title: "Price",
       dataIndex: "price",
       key: "price",
-      sorter: (a, b) => a.price - b.price,
       render: (p) => `${currency}${p}`,
     },
     {
       title: "Bestseller",
       dataIndex: "bestSeller",
       key: "bestSeller",
-      sorter: (a, b) =>
-        a.bestSeller === b.bestSeller ? 0 : a.bestSeller ? -1 : 1,
       render: (bs) => (bs ? "Yes" : "No"),
     },
     {
       title: "In Stock",
       dataIndex: "inStock",
       key: "inStock",
-      sorter: (a, b) => (a.inStock === b.inStock ? 0 : a.inStock ? -1 : 1),
       render: (is) => (is ? "Yes" : "No"),
     },
     {
       title: "Posted On",
       dataIndex: "createdAt",
       key: "postedOn",
-      sorter: (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
       render: formatDate,
     },
     {
       title: "Updated On",
       dataIndex: "updatedAt",
       key: "updatedOn",
-      sorter: (a, b) => new Date(a.updatedAt) - new Date(b.updatedAt),
       render: formatDate,
     },
     {
       title: "Tags",
       dataIndex: "tags",
       key: "tags",
-      render: (tags) => (tags || []).map((tag) => <Tag key={tag}>{tag}</Tag>),
+      render: (tags) => (tags || []).map((t) => <Tag key={t}>{t}</Tag>),
     },
     {
       title: "Action",
       key: "action",
-      align: "center",
       render: (_, rec) => (
         <Space>
           <Button icon={<EditOutlined />} onClick={() => showEditModal(rec)} />
@@ -321,6 +314,18 @@ const List = ({ token }) => {
   return (
     <>
       <h2>All Products</h2>
+
+      {/* Hidden Image for built-in preview */}
+      <Image
+        src={previewImage}
+        preview={{
+          visible: previewOpen,
+          onVisibleChange: (vis) => setPreviewOpen(vis),
+          mask: <Button>Close</Button>,
+        }}
+        style={{ display: "none" }}
+      />
+
       <Table
         rowKey="_id"
         loading={loading}
@@ -330,19 +335,7 @@ const List = ({ token }) => {
         scroll={{ x: "max-content" }}
       />
 
-      <Modal
-        open={previewOpen}
-        title={previewTitle}
-        footer={null}
-        onCancel={() => setPreviewOpen(false)}
-      >
-        <img
-          alt="Preview"
-          src={previewImage}
-          style={{ width: "100%", objectFit: "contain", maxHeight: "80vh" }}
-        />
-      </Modal>
-
+      {/* Edit Modal */}
       <Modal
         title="Edit Product"
         open={isEditModalOpen}
@@ -354,7 +347,7 @@ const List = ({ token }) => {
           form
             .validateFields()
             .then((values) => handleUpdate(values))
-            .catch(({ errorFields }) => form.scrollToField(errorFields[0].name))
+            .catch((err) => console.error(err))
         }
       >
         <Form form={form} layout="vertical">
