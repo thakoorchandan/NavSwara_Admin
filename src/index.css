@@ -19,3 +19,8 @@ select,input,textarea{
   background-color: #ffebf5;
   border-color: #c586a5;
 }
+
+.ant-image-preview-wrap,
+.ant-image-preview-mask {
+  z-index: 9999 !important;
+}

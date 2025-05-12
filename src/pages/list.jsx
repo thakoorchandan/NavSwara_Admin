@@ -318,12 +318,13 @@ const List = ({ token }) => {
       {/* Hidden Image for built-in preview */}
       <Image
         src={previewImage}
+        style={{ display: "none" }}
         preview={{
           visible: previewOpen,
           onVisibleChange: (vis) => setPreviewOpen(vis),
+          getContainer: () => document.body,
           mask: <Button>Close</Button>,
         }}
-        style={{ display: "none" }}
       />
 
       <Table
