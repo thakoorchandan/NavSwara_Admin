@@ -1,233 +1,272 @@
+// src/pages/Add.jsx
 import { useState } from "react";
-import assets from "../assets/assets";
+import {
+  ConfigProvider,
+  Form,
+  Input,
+  InputNumber,
+  Select,
+  Checkbox,
+  Upload,
+  Button,
+  Card,
+  Row,
+  Col,
+  Image,
+  Space,
+  Tooltip,
+  Typography,
+} from "antd";
+import { InboxOutlined, CloseCircleOutlined } from "@ant-design/icons";
 import axios from "axios";
 import { toast } from "react-toastify";
 
-const Add = ({ token }) => {
-  const [images, setImages] = useState([]);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [price, setPrice] = useState("");
-  const [category, setCategory] = useState("Men");
-  const [subCategory, setSubCategory] = useState("Topwear");
-  const [bestseller, setBestSeller] = useState(false);
-  const [sizes, setSizes] = useState([]);
-  const [loading, setLoading] = useState(false);
+const { Dragger } = Upload;
+const { Title, Text } = Typography;
+const categoryOptions = ["Men", "Women", "Kids"];
+const subCategoryOptions = ["Topwear", "Bottomwear", "Winterwear"];
+const sizeOptions = ["S", "M", "L", "XL", "XXL"];
 
-  const onDrop = (e) => {
-    e.preventDefault();
-    const files = Array.from(e.dataTransfer.files);
-    const imageFiles = files.filter((file) => file.type.startsWith("image/"));
-    setImages((prev) => [...prev, ...imageFiles]);
+const getBase64 = (file, cb) => {
+  const r = new FileReader();
+  r.readAsDataURL(file);
+  r.onload = () => cb(r.result);
+};
+
+export default function Add({ token }) {
+  const [form] = Form.useForm();
+  const [coverList, setCoverList] = useState([]);
+  const [otherList, setOtherList] = useState([]);
+  const [uploading, setUploading] = useState(false);
+
+  const handleCoverChange = ({ fileList }) => {
+    fileList.forEach((f) => {
+      if (f.originFileObj && !f.preview) {
+        getBase64(f.originFileObj, (url) => {
+          f.preview = url;
+          setCoverList([...fileList]);
+        });
+      }
+    });
+    setCoverList(fileList);
   };
 
-  const onImageChange = (e) => {
-    const files = Array.from(e.target.files);
-    setImages((prev) => [...prev, ...files]);
+  const handleOtherChange = ({ fileList }) => {
+    fileList.forEach((f) => {
+      if (f.originFileObj && !f.preview) {
+        getBase64(f.originFileObj, (url) => {
+          f.preview = url;
+          setOtherList([...fileList]);
+        });
+      }
+    });
+    setOtherList(fileList);
   };
 
-  const removeImage = (index) => {
-    setImages(images.filter((_, i) => i !== index));
-  };
+  const onFinish = async (values) => {
+    if (!coverList.length) {
+      return toast.error("Please upload a cover image");
+    }
+    setUploading(true);
 
-  const onSubmitHandler = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+    const fd = new FormData();
+    // fields...
+    fd.append("name", values.name);
+    fd.append("description", values.description);
+    fd.append("price", values.price);
+    fd.append("category", values.category);
+    fd.append("subCategory", values.subCategory);
+    fd.append("sizes", JSON.stringify(values.sizes));
+    fd.append("tags", JSON.stringify(values.tags));
+    fd.append("color", JSON.stringify(values.colors || []));
+    fd.append("bestSeller", values.bestSeller);
+    fd.append("inStock", values.inStock);
+
+    // coverImage:
+    fd.append("coverImage", coverList[0].originFileObj);
+
+    // other images:
+    otherList.forEach((f, idx) => {
+      fd.append(`images`, f.originFileObj);
+    });
 
     try {
-      const formData = new FormData();
-      formData.append("name", name);
-      formData.append("description", description);
-      formData.append("price", price);
-      formData.append("category", category);
-      formData.append("subCategory", subCategory);
-      formData.append("bestseller", bestseller);
-      formData.append("sizes", JSON.stringify(sizes));
-
-      images.forEach((img, i) => {
-        formData.append(`image${i + 1}`, img);
-      });
-
-      const response = await axios.post(
-        import.meta.env.VITE_BACKEND_URL + "/api/product/add",
-        formData,
+      const { data } = await axios.post(
+        `${import.meta.env.VITE_BACKEND_URL}/api/product/add`,
+        fd,
         { headers: { token } }
       );
-
-      if (response.data.sucsess) {
-        toast.success(response.data.message);
-        setName("");
-        setDescription("");
-        setImages([]);
-        setPrice("");
-        setSizes([]);
-        setBestSeller(false);
+      if (data.success) {
+        toast.success(data.message);
+        form.resetFields();
+        setCoverList([]);
+        setOtherList([]);
       } else {
-        toast.error(response.data.message);
+        toast.error(data.message);
       }
-    } catch (error) {
-      console.log(error);
-      toast.error(error.message);
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message);
     } finally {
-      setLoading(false);
+      setUploading(false);
     }
   };
 
   return (
-    <form
-      onSubmit={onSubmitHandler}
-      className="flex flex-col w-full items-start gap-3"
-      onDrop={onDrop}
-      onDragOver={(e) => e.preventDefault()}
-    >
-      <div>
-        <p className="mb-2">Upload Images (Drag and drop supported)</p>
-        <div className="flex gap-2 flex-wrap border border-dashed border-gray-400 p-4 rounded">
-          {images.map((image, index) => (
-            <div key={index} className="relative group">
-              <img
-                src={URL.createObjectURL(image)}
-                className="w-20 h-20 object-cover"
-                alt={`upload-${index}`}
-              />
-              <button
-                type="button"
-                onClick={() => removeImage(index)}
-                className="absolute top-0 right-0 bg-red-500 text-white text-xs px-1 py-0.5 rounded-full opacity-75 hover:opacity-100"
-              >
-                X
-              </button>
-            </div>
-          ))}
-          <label className="w-20 h-20 flex items-center justify-center border border-gray-300 cursor-pointer bg-slate-100">
-            <span className="text-xl">+</span>
-            <input
-              type="file"
-              hidden
+    <ConfigProvider componentSize="large">
+      <Card
+        title={<Title level={3}>Add New Product</Title>}
+        style={{ maxWidth: 800, margin: "40px auto" }}
+      >
+        <Form form={form} layout="vertical" onFinish={onFinish}>
+          {/* coverImage */}
+          <Form.Item
+            label="Cover Image"
+            rules={[
+              {
+                validator: () =>
+                  coverList.length
+                    ? Promise.resolve()
+                    : Promise.reject("Upload cover image"),
+              },
+            ]}
+          >
+            <Dragger
+              accept="image/*"
+              maxCount={1}
+              fileList={coverList}
+              onChange={handleCoverChange}
+              onRemove={() => setCoverList([])}
+              beforeUpload={() => false}
+              listType="picture-card"
+            >
+              <InboxOutlined style={{ fontSize: 24 }} />
+              <div>Click or drag to upload cover</div>
+            </Dragger>
+          </Form.Item>
+
+          {/* otherImages */}
+          <Form.Item label="Other Images">
+            <Dragger
               accept="image/*"
               multiple
-              onChange={onImageChange}
-            />
-          </label>
-        </div>
-      </div>
-
-      {/* ...Other inputs remain the same... */}
-
-      <div className="w-full">
-        <p className="mb-2">Product Name</p>
-        <input
-          onChange={(e) => setName(e.target.value)}
-          value={name}
-          className="w-full max-w-[500px] px-3 py-2"
-          type="text"
-          placeholder="Type Here"
-          required
-        />
-      </div>
-
-      <div className="w-full">
-        <p className="mb-2">Product description</p>
-        <textarea
-          onChange={(e) => setDescription(e.target.value)}
-          value={description}
-          className="w-full max-w-[500px] px-3 py-2"
-          placeholder="Write content here"
-          required
-        />
-      </div>
-
-      <div className="flex flex-col sm:flex-row gap-2 w-full sm:gap-8">
-        <div>
-          <p className="mb-2">Product category</p>
-          <select
-            onChange={(e) => setCategory(e.target.value)}
-            className="w-full px-3 py-2"
-            value={category}
-          >
-            <option value="Men">Men</option>
-            <option value="Women">Women</option>
-            <option value="Kids">Kids</option>
-          </select>
-        </div>
-
-        <div>
-          <p className="mb-2">Sub category</p>
-          <select
-            onChange={(e) => setSubCategory(e.target.value)}
-            className="w-full px-3 py-2"
-            value={subCategory}
-          >
-            <option value="Topwear">Topwear</option>
-            <option value="Bottomwear">Bottomwear</option>
-            <option value="Winterwear">Winterwear</option>
-          </select>
-        </div>
-
-        <div>
-          <p className="mb-2">Product Price</p>
-          <input
-            onChange={(e) => setPrice(e.target.value)}
-            value={price}
-            className="w-full px-3 py-2 sm:w-[120px]"
-            type="number"
-            placeholder="25"
-          />
-        </div>
-      </div>
-
-      <div>
-        <p className="mb-2">Product sizes</p>
-        <div className="flex gap-3">
-          {["S", "M", "L", "XL", "XXL"].map((size) => (
-            <div
-              key={size}
-              onClick={() =>
-                setSizes((prev) =>
-                  prev.includes(size)
-                    ? prev.filter((s) => s !== size)
-                    : [...prev, size]
-                )
+              fileList={otherList}
+              onChange={handleOtherChange}
+              onRemove={(f) =>
+                setOtherList((list) => list.filter((x) => x.uid !== f.uid))
               }
+              beforeUpload={() => false}
+              listType="picture-card"
             >
-              <p
-                className={`${sizes.includes(size)
-                  ? "bg-pink-100"
-                  : "bg-slate-200"
-                  } px-3 py-1 cursor-pointer`}
+              <InboxOutlined style={{ fontSize: 24 }} />
+              <div>Upload additional images</div>
+            </Dragger>
+          </Form.Item>
+
+          {/* name, price, desc, category... */}
+          <Row gutter={16}>
+            <Col xs={24} sm={12}>
+              <Form.Item name="name" label="Name" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item
+                name="price"
+                label="Price"
+                rules={[{ required: true }]}
               >
-                {size}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
+                <InputNumber min={0} style={{ width: "100%" }} />
+              </Form.Item>
+            </Col>
+          </Row>
 
-      <div className="flex gap-2 mt-2">
-        <input
-          onChange={(e) => setBestSeller(e.target.checked)}
-          checked={bestseller}
-          type="checkbox"
-          id="bestseller"
-        />
-        <label className="cursor-pointer" htmlFor="bestseller">
-          Add to Bestseller
-        </label>
-      </div>
+          <Form.Item
+            name="description"
+            label="Description"
+            rules={[{ required: true }]}
+          >
+            <Input.TextArea rows={4} />
+          </Form.Item>
 
-      <button
-        type="submit"
-        className="w-28 py-3 mt-4 bg-black text-white flex justify-center items-center"
-        disabled={loading}
-      >
-        {loading ? (
-          <span className="animate-spin rounded-full h-5 w-5 border-t-2 border-white border-solid" />
-        ) : (
-          "ADD"
-        )}
-      </button>
-    </form>
+          <Row gutter={16}>
+            <Col xs={24} sm={12}>
+              <Form.Item
+                name="category"
+                label="Category"
+                rules={[{ required: true }]}
+              >
+                <Select
+                  options={categoryOptions.map((c) => ({ label: c, value: c }))}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item
+                name="subCategory"
+                label="Sub-Category"
+                rules={[{ required: true }]}
+              >
+                <Select
+                  options={subCategoryOptions.map((s) => ({
+                    label: s,
+                    value: s,
+                  }))}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item name="sizes" label="Sizes" rules={[{ required: true }]}>
+            <Checkbox.Group
+              options={sizeOptions.map((s) => ({ label: s, value: s }))}
+            />
+          </Form.Item>
+
+          <Row gutter={16}>
+            <Col xs={24} sm={12}>
+              <Form.Item name="tags" label="Tags" rules={[{ required: true }]}>
+                <Select mode="tags" placeholder="e.g. summer" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="brand" label="Brand">
+                <Input />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item name="colors" label="Colors">
+            <Select mode="tags" placeholder="e.g. red" />
+          </Form.Item>
+
+          <Row gutter={16} align="middle">
+            <Col>
+              <Form.Item name="bestSeller" valuePropName="checked">
+                <Checkbox>Bestseller</Checkbox>
+              </Form.Item>
+            </Col>
+            <Col>
+              <Form.Item name="inStock" valuePropName="checked" initialValue>
+                <Checkbox>In Stock</Checkbox>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item>
+            <Tooltip title={coverList.length === 0 ? "Upload cover image" : ""}>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={uploading}
+                block
+              >
+                Submit
+              </Button>
+            </Tooltip>
+          </Form.Item>
+        </Form>
+      </Card>
+    </ConfigProvider>
   );
-};
-
-export default Add;
+}
