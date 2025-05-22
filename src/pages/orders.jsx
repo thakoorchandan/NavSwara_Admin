@@ -47,12 +47,12 @@ const { RangePicker } = DatePicker;
 const { Option } = Select;
 
 const statusBadge = {
-  "Order Placed":    { status: "processing", text: "Order Placed" },
-  Packing:           { status: "processing", text: "Packing" },
-  Shipped:           { status: "processing", text: "Shipped" },
-  "Out for delivery":{ status: "warning",    text: "Out for Delivery" },
-  Delivered:         { status: "success",    text: "Delivered" },
-  Cancelled:         { status: "error",      text: "Cancelled" },
+  "Order Placed": { status: "processing", text: "Order Placed" },
+  Packing: { status: "processing", text: "Packing" },
+  Shipped: { status: "processing", text: "Shipped" },
+  "Out for delivery": { status: "warning", text: "Out for Delivery" },
+  Delivered: { status: "success", text: "Delivered" },
+  Cancelled: { status: "error", text: "Cancelled" },
 };
 
 export default function Orders({ token }) {
@@ -104,6 +104,31 @@ export default function Orders({ token }) {
     if (maxAmount > 0) setPriceRangeFilter([minAmount, maxAmount]);
   }, [minAmount, maxAmount]);
 
+  const handleStatusChange = (orderId, newStatus) => {
+    axios
+      .post(
+        `${backendUrl}/api/order/status`,
+        { orderId, status: newStatus },
+        { headers: { token } }
+      )
+      .then(({ data }) => {
+        if (data.success) {
+          message.success("Order status updated");
+          setOrders((prev) =>
+            prev.map((o) =>
+              o._id === orderId ? { ...o, status: newStatus } : o
+            )
+          );
+        } else {
+          message.error(data.message);
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+        message.error("Failed to update status");
+      });
+  };
+
   // Filtered orders
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
@@ -113,9 +138,7 @@ export default function Orders({ token }) {
         !(
           o._id.toLowerCase().includes(txt) ||
           o.user.name.toLowerCase().includes(txt) ||
-          o.items.some((it) =>
-            it.name.toLowerCase().includes(txt)
-          ) ||
+          o.items.some((it) => it.name.toLowerCase().includes(txt)) ||
           String(o.totalAmount).includes(txt)
         )
       )
@@ -256,6 +279,24 @@ export default function Orders({ token }) {
       },
     },
     {
+      title: "Change Status",
+      key: "changeStatus",
+      width: 180,
+      render: (_, record) => (
+        <Select
+          defaultValue={record.status}
+          style={{ width: 160 }}
+          onSelect={(val) => handleStatusChange(record._id, val)}
+        >
+          {Object.keys(statusBadge).map((statusKey) => (
+            <Option key={statusKey} value={statusKey}>
+              {statusBadge[statusKey].text}
+            </Option>
+          ))}
+        </Select>
+      ),
+    },
+    {
       title: "Paid",
       key: "paid",
       width: 100,
@@ -380,7 +421,10 @@ export default function Orders({ token }) {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Orders");
     const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    saveAs(new Blob([wbout], { type: "application/octet-stream" }), "orders.xlsx");
+    saveAs(
+      new Blob([wbout], { type: "application/octet-stream" }),
+      "orders.xlsx"
+    );
   };
 
   // Export Word
@@ -432,11 +476,13 @@ export default function Orders({ token }) {
           o.status,
           paid,
           new Date(o.createdAt).toLocaleString(),
-        ].map((txt) => new TableCell({ children: [new Paragraph(txt)] }))
+        ].map((txt) => new TableCell({ children: [new Paragraph(txt)] })),
       });
     });
     const doc = new Document({
-      sections: [{ children: [new WordTable({ rows: [headerRow, ...dataRows] })] }],
+      sections: [
+        { children: [new WordTable({ rows: [headerRow, ...dataRows] })] },
+      ],
     });
     const blob = await Packer.toBlob(doc);
     saveAs(blob, "orders.docx");
@@ -582,7 +628,9 @@ export default function Orders({ token }) {
                           <strong>Total:</strong> ₹{it.totalPrice}
                         </p>
                         {snap.tags?.length > 0 && (
-                          <p><strong>Tags:</strong> {snap.tags.join(", ")}</p>
+                          <p>
+                            <strong>Tags:</strong> {snap.tags.join(", ")}
+                          </p>
                         )}
                         <div className="mt-2 flex flex-wrap gap-2">
                           {snap.images?.map((img, i) => (
